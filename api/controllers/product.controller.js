@@ -10,16 +10,19 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// Get All Products
+// Get All Products (with optional seller filtering)
 exports.getProducts = async (req, res) => {
   try {
-    const products = await Product.find();
+    const filter = {};
+    if (req.query.sellerId) filter.sellerId = req.query.sellerId;
+    if (req.query.sellerEmail) filter.sellerEmail = req.query.sellerEmail;
+
+    const products = await Product.find(filter);
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-
 // Get Product by ID
 exports.getProductById = async (req, res) => {
   try {
