@@ -1,10 +1,12 @@
 const Cart = require('../models/cart.models');
+const connectDB = require('../db');
 
 // Add product to cart
 exports.addToCart = async (req, res) => {
   const { userId, productId } = req.body;
 
   try {
+    await connectDB();
     let item = await Cart.findOne({ userId, productId });
     if (item) {
       item.quantity += 1;
@@ -24,6 +26,7 @@ exports.getCartByUser = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    await connectDB();
     const cartItems = await Cart.find({ userId }).populate('productId');
     res.status(200).json(cartItems);
   } catch (err) {
@@ -36,6 +39,7 @@ exports.removeFromCart = async (req, res) => {
   const { itemId } = req.params;
 
   try {
+    await connectDB();
     await Cart.findByIdAndDelete(itemId);
     res.status(200).json({ message: 'Item removed from cart' });
   } catch (err) {
@@ -52,6 +56,7 @@ exports.updateQuantity = async (req, res) => {
   }
 
   try {
+    await connectDB();
     const updatedItem = await Cart.findByIdAndUpdate(
       itemId,
       { quantity },

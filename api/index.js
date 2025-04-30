@@ -1,9 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const serverless = require('serverless-http');
 require('dotenv').config();
 
 const app = express();
+const router = express.Router();
 mongoose.set('bufferCommands', false);
 
 let cachedDb = null;
@@ -39,14 +41,27 @@ async function connectToDatabase() {
 app.use(cors());
 app.use(express.json());
 
-// Routes
-app.use('/products', require('./routes/product.routes'));
-app.use('/seller', require('./routes/seller.routes'));
-app.use('/buyer', require('./routes/buyer.routes'));
-app.use('/cart', require('./routes/cart.routes'));
+// Import routes
+const productRoutes = require('../routes/product.routes');
+const sellerRoutes = require('../routes/seller.routes');
+const buyerRoutes = require('../routes/buyer.routes');
+const cartRoutes = require('../routes/cart.routes');
 
-// Vercel Handler - Ensure DB is connected before handling requests
-module.exports = async (req, res) => {
+// Mount all routes on the router
+router.use('/products', productRoutes);
+router.use('/seller', sellerRoutes);
+router.use('/buyer', buyerRoutes);
+router.use('/cart', cartRoutes);
+
+// Mount the router on the app with '/api' prefix
+app.use('/api', router);
+
+// Export both the regular app and serverless handler
+module.exports = app;
+module.exports.handler = serverless(app);
+
+// Vercel Handler - Alternative version that ensures DB connection
+module.exports.vercelHandler = async (req, res) => {
   try {
     await connectToDatabase();  // Ensure DB is connected
     return app(req, res);       // Let Express handle the request
