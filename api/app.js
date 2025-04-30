@@ -43,6 +43,7 @@ app.use(express.json());
 app.use('/products', require('./routes/product.routes'));
 app.use('/seller', require('./routes/seller.routes'));
 app.use('/buyer', require('./routes/buyer.routes'));
+app.use('/cart', require('./routes/cart.routes'));
 
 // Vercel Handler - Ensure DB is connected before handling requests
 module.exports = async (req, res) => {
