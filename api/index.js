@@ -28,8 +28,8 @@ async function connectToDatabase() {
 
   try {
     await mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      //useNewUrlParser: true,
+      //useUnifiedTopology: true,
       bufferCommands: false,
     });
     isConnected = true;
