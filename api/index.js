@@ -5,35 +5,38 @@ const serverless = require('serverless-http');
 require('dotenv').config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`✅ Server is running on port ${PORT}`);
+});
+
 const router = express.Router();
 mongoose.set('bufferCommands', false);
 
-let cachedDb = null;
+let isConnected = false;
 
-// Connect to MongoDB and cache the connection
+// Connect to MongoDB once before handling requests
 async function connectToDatabase() {
-  if (cachedDb) return cachedDb;  // Return the cached DB connection if already established
+  if (isConnected) return;
+
+  const uri = process.env.MONGO_URI;
+  if (!uri) {
+    console.error("❌ MONGO_URI is missing");
+    throw new Error("MONGO_URI not defined");
+  }
 
   try {
-    const uri = process.env.MONGO_URI; // Fetch MongoDB URI from environment variables
-
-    if (!uri) {
-      console.error("❌ MongoDB URI is missing. Please check your environment variables.");
-      throw new Error("MongoDB URI not defined");
-    }
-
-    // Connect to MongoDB using the URI
-    const conn = await mongoose.connect(uri, {
+    await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      bufferCommands: false,
     });
-
+    isConnected = true;
     console.log('✅ MongoDB connected');
-    cachedDb = conn;  // Cache the DB connection
-    return conn;
   } catch (err) {
     console.error('❌ MongoDB connection error:', err);
-    throw err;  // Throw error if connection fails
+    throw err;
   }
 }
 
@@ -41,32 +44,27 @@ async function connectToDatabase() {
 app.use(cors());
 app.use(express.json());
 
-// Import routes
+// Connect to DB before all requests
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'DB connection failed' });
+  }
+});
+
+// Routes
 const productRoutes = require('../routes/product.routes');
 const sellerRoutes = require('../routes/seller.routes');
 const buyerRoutes = require('../routes/buyer.routes');
 const cartRoutes = require('../routes/cart.routes');
 
-// Mount all routes on the router
 router.use('/products', productRoutes);
 router.use('/seller', sellerRoutes);
 router.use('/buyer', buyerRoutes);
 router.use('/cart', cartRoutes);
-
-// Mount the router on the app with '/api' prefix
 app.use('/api', router);
 
-// Export both the regular app and serverless handler
 module.exports = app;
 module.exports.handler = serverless(app);
-
-// Vercel Handler - Alternative version that ensures DB connection
-module.exports.vercelHandler = async (req, res) => {
-  try {
-    await connectToDatabase();  // Ensure DB is connected
-    return app(req, res);       // Let Express handle the request
-  } catch (error) {
-    console.error('❌ Server error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-};

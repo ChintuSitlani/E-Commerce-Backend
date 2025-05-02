@@ -1,10 +1,10 @@
 const Product = require('../models/product.models');
-const connectDB = require('../db');
+ 
 
 // Create Product
 exports.createProduct = async (req, res) => {
   try {
-    await connectDB();
+     
     const newProduct = await Product.create(req.body);
     res.status(201).json(newProduct);
   } catch (err) {
@@ -15,7 +15,7 @@ exports.createProduct = async (req, res) => {
 // Get All Products (with optional seller filtering)
 exports.getProducts = async (req, res) => {
   try {
-    await connectDB(); 
+      
     const filter = {};
     if (req.query.sellerId) filter.sellerId = req.query.sellerId;
     if (req.query.sellerEmail) filter.sellerEmail = req.query.sellerEmail;
@@ -30,7 +30,7 @@ exports.getProducts = async (req, res) => {
 // Get Product by ID
 exports.getProductById = async (req, res) => {
   try {
-    await connectDB(); 
+      
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);
@@ -42,7 +42,7 @@ exports.getProductById = async (req, res) => {
 // Update Product
 exports.updateProduct = async (req, res) => {
   try {
-    await connectDB(); 
+      
     const updatedProduct = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updatedProduct);
   } catch (err) {
@@ -53,7 +53,7 @@ exports.updateProduct = async (req, res) => {
 // Delete Product
 exports.deleteProduct = async (req, res) => {
   try {
-    await connectDB(); 
+      
     await Product.findByIdAndDelete(req.params.id);
     res.json({ message: 'Product deleted' });
   } catch (err) {
