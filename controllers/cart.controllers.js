@@ -1,23 +1,35 @@
 const Cart = require('../models/cart.models');
- 
 const Coupon = require('../models/coupon.models');
+const Product = require('../models/product.models');
 
-// Add product to cart
+
 exports.addToCart = async (req, res) => {
   const { userId, productId } = req.body;
 
   try {
-     
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
     let item = await Cart.findOne({ userId, productId });
     if (item) {
       item.quantity += 1;
       await item.save();
     } else {
-      item = new Cart({ userId, productId });
+      item = new Cart({
+        userId,
+        productId,
+        quantity: 1,
+        taxRate: product.taxRate,
+        discount: product.discountRate
+      });
       await item.save();
     }
+
     res.status(200).json(item);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to add to cart' });
   }
 };
@@ -27,7 +39,7 @@ exports.getCartByUser = async (req, res) => {
   const { userId } = req.params;
 
   try {
-     
+
     const cartItems = await Cart.find({ userId }).populate('productId');
     res.status(200).json(cartItems);
   } catch (err) {
@@ -40,7 +52,7 @@ exports.removeFromCart = async (req, res) => {
   const { itemId } = req.params;
 
   try {
-     
+
     await Cart.findByIdAndDelete(itemId);
     res.status(200).json({ message: 'Item removed from cart' });
   } catch (err) {
@@ -57,7 +69,7 @@ exports.updateQuantity = async (req, res) => {
   }
 
   try {
-     
+
     const updatedItem = await Cart.findByIdAndUpdate(
       itemId,
       { quantity },
@@ -71,15 +83,15 @@ exports.updateQuantity = async (req, res) => {
 
 exports.getCartSummary = async (req, res) => {
   const { userId, couponCode } = req.query;
-  console.error( userId, couponCode); // Log the userId and couponCode for debugging
+  console.error(userId, couponCode); // Log the userId and couponCode for debugging
 
   try {
-     
+
     const cartItems = await Cart.find({ userId }).populate('productId');
     let subTotal = 0;
     let taxTotal = 0;
     let itemDiscountTotal = 0;
-    console.error('Cart Items:', cartItems); 
+    console.error('Cart Items:', cartItems);
     for (const item of cartItems) {
       const price = item.productId.price;
       const quantity = item.quantity;
