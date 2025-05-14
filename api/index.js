@@ -41,7 +41,11 @@ async function connectToDatabase() {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:4200', 'https://e-commerce-je8g.vercel.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, 
+}));
 app.use(express.json());
 
 // Connect to DB before all requests
