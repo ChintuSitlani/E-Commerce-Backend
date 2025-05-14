@@ -60,12 +60,14 @@ const sellerRoutes = require('../routes/seller.routes');
 const buyerRoutes = require('../routes/buyer.routes');
 const cartRoutes = require('../routes/cart.routes');
 const couponRoutes = require('../routes/coupon.routes');
+const authRoutes = require('../routes/auth.routes');
 
 router.use('/products', productRoutes);
 router.use('/seller', sellerRoutes);
 router.use('/buyer', buyerRoutes);
 router.use('/cart', cartRoutes);
 router.use('/coupon', couponRoutes);
+router.use('/auth', authRoutes);
 
 app.use('/api', router);
 
