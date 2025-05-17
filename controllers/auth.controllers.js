@@ -1,10 +1,11 @@
 const Otp = require('../models/otp.models');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const Buyer = require('../models/buyer.models');
 require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail', 
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -42,5 +43,7 @@ exports.verifyOtp = async (req, res) => {
   if (record.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired' });
 
   await Otp.deleteOne({ email });
+  buyer.isEmailVerified = true;
+  await buyer.save();
   res.json({ message: 'OTP verified successfully' });
 };
