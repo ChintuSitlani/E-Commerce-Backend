@@ -19,6 +19,17 @@ const orderSchema = new mongoose.Schema({
     }
   ],
   totalAmount: { type: Number, required: true },
+  taxTotal: {type: Number, default: 0 },
+  discountTotal: { type: Number, default: 0 },
+  shippingCharges: { type: Number, default: 0 },
+  couponDiscount: { type: Number, default: 0 },
+  couponCode: { type: String, default: null },
+  paymentMethod: {
+    type: String,
+    enum: ['credit_card', 'debit_card', 'paypal', 'COD', 'UPI'],
+    required: true
+  },
+
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
@@ -30,6 +41,13 @@ const orderSchema = new mongoose.Schema({
     default: 'pending'
   },
   shippingAddress: {
+    line1: String,
+    city: String,
+    state: String,
+    country: String,
+    pincode: String
+  }
+  billingAddress: {
     line1: String,
     city: String,
     state: String,
