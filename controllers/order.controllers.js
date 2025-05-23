@@ -3,14 +3,15 @@ const Order = require('../models/order.models');
 // Create Order
 exports.createOrder = async (req, res) => {
   try {
-    const { buyerId, sellerId, items, totalAmount, shippingAddress } = req.body;
+    const { buyerId, sellerId, items, totalAmount, shippingAddress, paymentMethod } = req.body;
 
     const order = new Order({
       buyerId,
       sellerId,
       items,
       totalAmount,
-      shippingAddress
+      shippingAddress,
+      paymentMethod,
     });
 
     const savedOrder = await order.save();
