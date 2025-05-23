@@ -81,24 +81,38 @@ exports.updateQuantity = async (req, res) => {
   }
 };
 
+exports.updateSelected = async (req, res) => {
+  const { itemId } = req.params;
+  const { selected } = req.body;
+
+  try {
+    const updatedItem = await Cart.findByIdAndUpdate(
+      itemId,
+      { selected },
+      { new: true }
+    );
+    res.status(200).json(updatedItem);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update selected status' });
+  }
+};
+
 exports.getCartSummary = async (req, res) => {
   const { userId, couponCode } = req.query;
-  console.error(userId, couponCode); // Log the userId and couponCode for debugging
 
   try {
 
-    const cartItems = await Cart.find({ userId }).populate('productId');
+    const cartItems = await Cart.find({ userId, selected: true }).populate('productId');
     let subTotal = 0;
     let taxTotal = 0;
     let itemDiscountTotal = 0;
-    console.error('Cart Items:', cartItems);
     for (const item of cartItems) {
-      const price = item.productId.price;
+      const price = item.productId.priceExclTax;
       const quantity = item.quantity;
 
-      const itemTotal = price * quantity;
-      const discountAmount = item.discount > 0 ? (item.discount / 100) * itemTotal : 0;
-      const taxAmount = item.taxRate > 0 ? ((itemTotal - discountAmount) * item.taxRate / 100) : 0;
+      const itemTotal = item.productId.priceExclTax * quantity;
+      const discountAmount = item.productId.discountAmt > 0 ? item.productId.discountAmt * quantity : 0;
+      const taxAmount = item.productId.taxRate > 0 ? (itemTotal  * item.productId.taxRate / 100) : 0;
 
       subTotal += itemTotal;
       itemDiscountTotal += discountAmount;
