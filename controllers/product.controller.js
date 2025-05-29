@@ -102,3 +102,15 @@ exports.getFilteredProducts = async (req, res) => {
   }
 };
 
+// Get Crausal Product
+exports.getCrausalProduct = async (req, res) => {
+  try {
+    const limit = parseInt(req.query._limit, 10) || 5;
+
+    const crausalProduct = await Product.find().limit(limit);
+    res.json(crausalProduct);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+};
