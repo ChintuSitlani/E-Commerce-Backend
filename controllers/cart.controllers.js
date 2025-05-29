@@ -65,31 +65,28 @@ exports.removeFromCart = async (req, res) => {
 };
 exports.updateCartItem = async (req, res) => {
   const { itemId } = req.params;
-  const {userId, productId, quantity, taxRate, discountAmt, selected } = req.body;
+  const { userId, productId, quantity, taxRate, discountAmt, selected } = req.body.cartItem || {};
 
   try {
+    let cartItem;
     if (itemId) {
-      const cartItem = await Cart.findById(itemId);
+      cartItem = await Cart.findById(itemId);
     }
-
     if (!cartItem) {
       return res.status(404).json({ error: 'Cart item not found' });
     }
-
     if (quantity !== undefined) cartItem.quantity = quantity;
     if (taxRate !== undefined) cartItem.taxRate = taxRate;
     if (discountAmt !== undefined) cartItem.discount = discountAmt;
     if (selected !== undefined) cartItem.selected = selected;
 
     await cartItem.save();
-
     res.status(200).json(cartItem);
   } catch (err) {
     console.error('Update cart item error:', err);
     res.status(500).json({ error: 'Failed to update cart item' });
   }
 };
-
 
 exports.getCartSummary = async (req, res) => {
   const { userId, couponCode } = req.query;
