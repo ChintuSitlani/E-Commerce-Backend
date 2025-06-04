@@ -5,18 +5,12 @@ const serverless = require('serverless-http');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
-});
-
 const router = express.Router();
+
 mongoose.set('bufferCommands', false);
 
 let isConnected = false;
 
-// Connect to MongoDB once before handling requests
 async function connectToDatabase() {
   if (isConnected) return;
 
@@ -28,8 +22,6 @@ async function connectToDatabase() {
 
   try {
     await mongoose.connect(uri, {
-      //useNewUrlParser: true,
-      //useUnifiedTopology: true,
       bufferCommands: false,
     });
     isConnected = true;
@@ -42,14 +34,18 @@ async function connectToDatabase() {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:4200', 'https://e-commerce-je8g.vercel.app', 'https://e-com-web-sigma.vercel.app'],
+  origin: [
+    'http://localhost:4200',
+    'https://e-commerce-je8g.vercel.app',
+    'https://e-com-web-sigma.vercel.app',
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 
 app.use(express.json());
 
-// Connect to DB before all requests
+// Connect DB before requests
 app.use(async (req, res, next) => {
   try {
     await connectToDatabase();
@@ -76,8 +72,17 @@ router.use('/coupon', couponRoutes);
 router.use('/auth', authRoutes);
 router.use('/order', orderRoutes);
 
-
 app.use('/api', router);
+
+
+if (process.env.NODE_ENV !== 'production') {
+  connectToDatabase().then(() => {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`✅ Server is running on port ${PORT}`);
+    });
+  });
+}
 
 module.exports = app;
 module.exports.handler = serverless(app);
