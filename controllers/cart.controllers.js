@@ -4,32 +4,36 @@ const Product = require('../models/product.models');
 
 
 exports.addToCart = async (req, res) => {
-  const { userId, productId } = req.body;
+  const { userId, productId, quantity =1, taxRate, discountAmt, selected = true } = req.body;
 
   try {
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
+    let cartItem = await Cart.findOne({ userId, productId });
 
-    let item = await Cart.findOne({ userId, productId });
-    if (item) {
-      item.quantity += 1;
-      await item.save();
+    if (cartItem) {
+      cartItem.quantity += quantity;
+      if (typeof selected === 'boolean') {
+        cartItem.selected = selected;
+      }
+      await cartItem.save();
     } else {
-      item = new Cart({
+      cartItem = new Cart({
         userId,
         productId,
-        quantity: 1,
-        taxRate: product.taxRate,
-        discount: product.discountRate
+        quantity,
+        taxRate: taxRate ?? product.taxRate ?? 0,
+        discount: discountAmt ?? product.discountRate ?? 0,
+        selected
       });
-      await item.save();
+      await cartItem.save();
     }
 
-    res.status(200).json(item);
+    res.status(200).json(cartItem);
   } catch (err) {
-    console.error(err);
+    console.error('Add to cart error:', err);
     res.status(500).json({ error: 'Failed to add to cart' });
   }
 };
@@ -59,41 +63,28 @@ exports.removeFromCart = async (req, res) => {
     res.status(500).json({ error: 'Failed to remove item' });
   }
 };
-
-exports.updateQuantity = async (req, res) => {
+exports.updateCartItem = async (req, res) => {
   const { itemId } = req.params;
-  const { quantity } = req.body;
-
-  if (quantity < 1) {
-    return res.status(400).json({ error: 'Quantity must be at least 1' });
-  }
+  const { userId, productId, quantity, taxRate, discountAmt, selected } = req.body.cartItem || {};
 
   try {
+    let cartItem;
+    if (itemId) {
+      cartItem = await Cart.findById(itemId);
+    }
+    if (!cartItem) {
+      return res.status(404).json({ error: 'Cart item not found' });
+    }
+    if (quantity !== undefined) cartItem.quantity = quantity;
+    if (taxRate !== undefined) cartItem.taxRate = taxRate;
+    if (discountAmt !== undefined) cartItem.discount = discountAmt;
+    if (selected !== undefined) cartItem.selected = selected;
 
-    const updatedItem = await Cart.findByIdAndUpdate(
-      itemId,
-      { quantity },
-      { new: true }
-    );
-    res.status(200).json(updatedItem);
+    await cartItem.save();
+    res.status(200).json(cartItem);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update quantity' });
-  }
-};
-
-exports.updateSelected = async (req, res) => {
-  const { itemId } = req.params;
-  const { selected } = req.body;
-
-  try {
-    const updatedItem = await Cart.findByIdAndUpdate(
-      itemId,
-      { selected },
-      { new: true }
-    );
-    res.status(200).json(updatedItem);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to update selected status' });
+    console.error('Update cart item error:', err);
+    res.status(500).json({ error: 'Failed to update cart item' });
   }
 };
 

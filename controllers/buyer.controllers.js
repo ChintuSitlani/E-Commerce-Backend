@@ -32,6 +32,7 @@ exports.loginBuyer = async (req, res) => {
     res.json(buyer);
 
   } catch (err) {
+    console.log(err);
     res.status(500).json({ error: err.message });
   }
 };
