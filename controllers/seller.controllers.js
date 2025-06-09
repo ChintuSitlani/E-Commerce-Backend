@@ -1,12 +1,20 @@
 const Seller = require('../models/seller.models');
 const bcrypt = require('bcrypt');
+const { generateToken } = require('../utils/jwt.js');
 
 // Register Seller
 exports.registerSeller = async (req, res) => {
   try {
-    
-    const seller = await Seller.create({ ...req.body});
-    res.status(201).json(seller);
+    const hashedPassword = await bcrypt.hash(req.body.password.trim(), 10);
+    const seller = await Seller.create({ ...req.body, password: hashedPassword });
+
+    const token = generateToken(seller, 'seller');
+
+    res.status(201).json({
+      message: 'Registration successful',
+      token,
+      seller
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -27,7 +35,13 @@ exports.loginSeller = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    res.json(seller);
+    const token = generateToken(seller, 'seller');
+
+    res.json({
+      message: 'Login successful',
+      token,
+      seller
+    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });

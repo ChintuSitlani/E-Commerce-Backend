@@ -1,17 +1,22 @@
 const Buyer = require('../models/buyer.models');
 const bcrypt = require('bcrypt');
+const { generateToken } = require('../utils/jwt.js');
 
 // Register Buyer
 exports.registerBuyer = async (req, res) => {
-  try {
+ try {
+    const hashedPassword = await bcrypt.hash(req.body.password.trim(), 10);
 
-    const buyer = new Buyer({
-      name: req.body.name,
-      email: req.body.email,
-      password: req.body.password,
+    const buyer = await Buyer.create({ ...req.body, password: hashedPassword });
+
+    // ✅ Generate JWT Token Immediately
+    const token = generateToken(buyer, 'buyer');
+
+    res.status(201).json({
+      message: 'Registration successful',
+      token,
+      buyer
     });
-    await buyer.save();
-    res.status(201).json(buyer);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -29,7 +34,13 @@ exports.loginBuyer = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    res.json(buyer);
+    const token = generateToken(buyer, 'buyer');
+    
+    res.json({
+      message: 'Login successful',
+      token,
+      buyer
+    });
 
   } catch (err) {
     console.log(err);
