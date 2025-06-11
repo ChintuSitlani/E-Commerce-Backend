@@ -65,6 +65,7 @@ exports.getOrdersForBuyer = async (req, res) => {
     }
 
     const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
       .populate('sellerId')
       .populate('items.productId')
       .skip((page - 1) * limit)
@@ -95,6 +96,7 @@ exports.getOrdersForSeller = async (req, res) => {
     }
 
     const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
       .populate('items.productId')
       .populate('sellerId')
       .skip((page - 1) * limit)
