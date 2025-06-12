@@ -15,18 +15,30 @@ exports.createProduct = async (req, res) => {
 // Get All Products (with optional seller filtering)
 exports.getProducts = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 6; // Default to 6 products per page
+    const skip = (page - 1) * limit;
 
     const filter = {};
     if (req.query.sellerId) filter.sellerId = req.query.sellerId;
     if (req.query.sellerEmail) filter.sellerEmail = req.query.sellerEmail;
 
-    const products = await Product.find(filter);
-    res.json(products);
+    const products = await Product.find(filter)
+      .skip(skip)
+      .limit(limit);
+
+    const totalProducts = await Product.countDocuments(filter);
+    const hasMore = totalProducts > (skip + products.length);
+
+    res.json({
+      products,
+      hasMore,
+      totalProducts
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-
 // Get Product by ID
 exports.getProductById = async (req, res) => {
   try {
