@@ -68,9 +68,9 @@ exports.updateSellerInfo = async (req, res) => {
     }
 
     // Manually hash the password if it's being updated because the pre-save hook won't run with findByIdAndUpdate
-    if (updates.password) {
-      updates.password = await bcrypt.hash(updates.password, 10);
-    }
+    if (updates.password)
+      if (updates.password.trim() !== '')
+        updates.password = await bcrypt.hash(updates.password, 10);
 
     const updatedSeller = await Seller.findByIdAndUpdate(req.params.id, updates, { new: true });
     res.json(updatedSeller);
