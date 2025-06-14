@@ -36,8 +36,7 @@ async function connectToDatabase() {
 app.use(cors({
   origin: [
     'http://localhost:4200',
-    'https://e-commerce-je8g.vercel.app',
-    'https://e-com-web-sigma.vercel.app',
+    'https://e-commerce-six-ecru-38.vercel.app/'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
