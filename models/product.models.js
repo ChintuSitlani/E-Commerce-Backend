@@ -2,8 +2,23 @@ const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
   productName: { type: String, required: true },
-  category: { type: String, required: true },
-  subcategory: { type: String },
+  category: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category', 
+    required: [true, 'Category is required']
+  },
+  subcategory: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: async function (subcategory) {
+        if (!subcategory) return true; 
+        const category = await mongoose.model('Category').findById(this.category);
+        return category?.subcategories?.includes(subcategory);
+      },
+      message: 'Subcategory does not exist in the selected category'
+    }
+  },
   priceExclTax: { type: Number, required: true },
   stock: { type: Number, required: true },
   brand: { type: String },

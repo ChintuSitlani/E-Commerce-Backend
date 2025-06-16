@@ -36,7 +36,7 @@ async function connectToDatabase() {
 app.use(cors({
   origin: [
     'http://localhost:4200',
-    'https://e-commerce-six-ecru-38.vercel.app/'
+    'https://e-commerce-six-ecru-38.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
@@ -62,6 +62,7 @@ const cartRoutes = require('../routes/cart.routes');
 const couponRoutes = require('../routes/coupon.routes');
 const authRoutes = require('../routes/auth.routes');
 const orderRoutes = require('../routes/order.routes');
+const categoryRoutes = require('../routes/category.routes');
 
 router.use('/products', productRoutes);
 router.use('/seller', sellerRoutes);
@@ -70,6 +71,7 @@ router.use('/cart', cartRoutes);
 router.use('/coupon', couponRoutes);
 router.use('/auth', authRoutes);
 router.use('/order', orderRoutes);
+router.use('/category', categoryRoutes);
 
 app.use('/api', router);
 
