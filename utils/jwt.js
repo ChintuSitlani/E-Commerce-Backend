@@ -2,11 +2,11 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Generate token
-exports.generateToken = (user, userType = 'buyer') => {
+exports.generateToken = (user, userType = 'buyer', varExpiresIn = '7d') => {
   return jwt.sign(
     { id: user._id, email: user.email },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: varExpiresIn }
   );
 };
 

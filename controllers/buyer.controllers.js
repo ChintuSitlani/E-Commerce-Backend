@@ -1,6 +1,8 @@
 const Buyer = require('../models/buyer.models');
 const bcrypt = require('bcrypt');
 const { generateToken } = require('../utils/jwt.js');
+const authController = require('../controllers/auth.controllers.js');
+const jwt = require('jsonwebtoken');
 
 // Register Buyer
 exports.registerBuyer = async (req, res) => {
@@ -82,3 +84,51 @@ exports.updateBuyerInfo = async (req, res) => {
   }
 };
 
+exports.forgotPasswordByEmail = async (req, res) => {
+  try{
+    const { email , URL } = req.body;
+    
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) return res.status(404).json({ message: 'User not found' });
+
+    const token = generateToken(buyer, 'buyer', '15m');
+
+   const resetLink = `${URL}?token=${token}`;
+
+    authController.sendVerificationLink(req, res, resetLink, email);
+
+    res.json({ message: 'Reset link sent to email' });
+  }
+  catch(err){
+    console.log(err);
+    res.status(500).json({message : 'Error '+ err.message})
+  }
+};
+
+
+exports.resetPasswordWithToken = async (req, res) => {
+  
+  try {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+
+    const JWT_SECRET = process.env.JWT_SECRET;
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const buyer = await Buyer.findById(decoded.id);
+    if (!buyer) return res.status(404).json({ message: 'Invalid user' });
+
+    buyer.password = await bcrypt.hash(newPassword, 10);
+    await buyer.save();
+    // Generate a new token after password reset
+    const newToken = generateToken(buyer, 'buyer');
+
+    res.json({ 
+      message: 'Password reset successful',
+      newToken,
+      buyer
+     });
+  } catch (err) {
+    console.log('JWT Verification Error:', err);
+    res.status(400).json({ message: 'Invalid or expired token' + err.message });
+  }
+};
