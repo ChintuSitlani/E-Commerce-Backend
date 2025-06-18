@@ -4,131 +4,185 @@ const { generateToken } = require('../utils/jwt.js');
 const authController = require('../controllers/auth.controllers.js');
 const jwt = require('jsonwebtoken');
 
+// Helper function for consistent error responses
+const errorResponse = (res, status, message) => res.status(status).json({ message });
+
 // Register Buyer
 exports.registerBuyer = async (req, res) => {
- try {
-    const hashedPassword = await bcrypt.hash(req.body.password.trim(), 10);
+  try {
+    const { password, ...rest } = req.body;
+    const trimmedPassword = password?.trim();
 
-    const buyer = await Buyer.create({ ...req.body, password: hashedPassword });
+    if (!trimmedPassword) {
+      return errorResponse(res, 400, 'Password is required');
+    }
 
-    // ✅ Generate JWT Token Immediately
+    const buyer = await Buyer.create({
+      ...rest,
+      password: trimmedPassword 
+    });
+
     const token = generateToken(buyer, 'buyer');
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Registration successful',
       token,
-      buyer
+      buyer: {
+        id: buyer._id,
+        name: buyer.name,
+        email: buyer.email
+      }
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Registration error:', err);
+
+    if (err.code === 11000) {
+      return errorResponse(res, 409, 'Buyer already exists with this email');
+    }
+    if (err.name === 'ValidationError') {
+      return errorResponse(res, 400, err.message);
+    }
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
+
+// Login Buyer
 exports.loginBuyer = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const buyer = await Buyer.findOne({ email });
-    if (!buyer) {
-      return res.status(400).json({ message: 'buyer not found for this email-ID' });
+    if (!email || !password) {
+      return errorResponse(res, 400, 'Email and password are required');
     }
+
+    const buyer = await Buyer.findOne({ email }).select('+password');
+    if (!buyer) {
+      return errorResponse(res, 401, 'Invalid credentials');
+    }
+
     const isMatch = await bcrypt.compare(password.trim(), buyer.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return errorResponse(res, 401, 'Invalid credentials');
     }
 
     const token = generateToken(buyer, 'buyer');
-    
-    res.json({
+
+    return res.json({
       message: 'Login successful',
       token,
-      buyer
+      buyer: {
+        id: buyer._id,
+        name: buyer.name,
+        email: buyer.email
+      }
     });
-
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err.message });
+    console.error('Login error:', err);
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
 
+// Update Buyer Info
 exports.updateBuyerInfo = async (req, res) => {
   try {
     const allowedFields = [
-      'name',
-      'password',
-      'shippingAddress',
-      'pin',
-      'phone',
-      'country',
-      'state',
-      'city'
+      'name', 'shippingAddress', 'pin', 'phone',
+      'country', 'state', 'city', 'password'
     ];
 
-    const updates = {};
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
-      }
+    const updates = Object.keys(req.body)
+      .filter(key => allowedFields.includes(key) && req.body[key] !== undefined)
+      .reduce((obj, key) => {
+        obj[key] = req.body[key];
+        return obj;
+      }, {});
+
+    const buyer = await Buyer.findById(req.params.id);
+    if (!buyer) {
+      return errorResponse(res, 404, 'Buyer not found');
     }
 
-    // Manually hash the password if it's being updated because the pre-save hook won't run with findByIdAndUpdate
-    if (updates.password) 
-      if( updates.password.trim() !== '') 
-        updates.password = await bcrypt.hash(updates.password, 10);
-    
+    Object.assign(buyer, updates);
+    const updatedBuyer = await buyer.save();
 
-    const buyer = await Buyer.findByIdAndUpdate(req.params.id, updates, { new: true });
-    res.json(buyer);
-
+    return res.json({
+      message: 'Profile updated successfully',
+      buyer: updatedBuyer
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Update error:', err);
+    if (err.name === 'ValidationError') {
+      return errorResponse(res, 400, err.message);
+    }
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
 
+// Forgot Password
 exports.forgotPasswordByEmail = async (req, res) => {
-  try{
-    const { email , URL } = req.body;
-    
+  try {
+    const { email, URL } = req.body;
+
+    if (!email || !URL) {
+      return errorResponse(res, 400, 'Email and URL are required');
+    }
+
     const buyer = await Buyer.findOne({ email });
-    if (!buyer) return res.status(404).json({ message: 'User not found' });
+    if (!buyer) {
+      return errorResponse(res, 200, 'If this email exists, a reset link will be sent');
+    }
 
     const token = generateToken(buyer, 'buyer', '15m');
+    const resetLink = `${URL}?token=${encodeURIComponent(token)}&userType=buyer`;
 
-   const resetLink = `${URL}?token=${token}`;
+    await authController.sendVerificationLink(req, res, resetLink, email);
 
-    authController.sendVerificationLink(req, res, resetLink, email);
-
-    res.json({ message: 'Reset link sent to email' });
-  }
-  catch(err){
-    console.log(err);
-    res.status(500).json({message : 'Error '+ err.message})
+    return res.json({ message: 'If this email exists, a reset link will be sent' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
 
-
+// Reset Password
 exports.resetPasswordWithToken = async (req, res) => {
-  
   try {
     const { token } = req.params;
     const { newPassword } = req.body;
 
-    const JWT_SECRET = process.env.JWT_SECRET;
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const buyer = await Buyer.findById(decoded.id);
-    if (!buyer) return res.status(404).json({ message: 'Invalid user' });
+    if (!newPassword || newPassword.trim().length < 6) {
+      return errorResponse(res, 400, 'Password must be at least 6 characters');
+    }
 
-    buyer.password = await bcrypt.hash(newPassword, 10);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const buyer = await Buyer.findById(decoded.id);
+
+    if (!buyer) {
+      return errorResponse(res, 404, 'Invalid user');
+    }
+
+    buyer.password = newPassword.trim();
     await buyer.save();
-    // Generate a new token after password reset
+
     const newToken = generateToken(buyer, 'buyer');
 
-    res.json({ 
+    return res.json({
       message: 'Password reset successful',
       newToken,
-      buyer
-     });
+      buyer: {
+        id: buyer._id,
+        name: buyer.name,
+        email: buyer.email
+      }
+    });
   } catch (err) {
-    console.log('JWT Verification Error:', err);
-    res.status(400).json({ message: 'Invalid or expired token' + err.message });
+    console.error('Password reset error:', err);
+    if (err.name === 'TokenExpiredError') {
+      return errorResponse(res, 401, 'Token expired');
+    }
+    if (err.name === 'JsonWebTokenError') {
+      return errorResponse(res, 401, 'Invalid token');
+    }
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
