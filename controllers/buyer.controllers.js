@@ -79,7 +79,7 @@ exports.updateBuyerInfo = async (req, res) => {
   try {
     const allowedFields = [
       'name', 'shippingAddress', 'pin', 'phone',
-      'country', 'state', 'city', 'password'
+      'country', 'state', 'city'
     ];
 
     const updates = Object.keys(req.body)
@@ -109,7 +109,6 @@ exports.updateBuyerInfo = async (req, res) => {
     return errorResponse(res, 500, 'Internal server error');
   }
 };
-
 // Forgot Password
 exports.forgotPasswordByEmail = async (req, res) => {
   try {
