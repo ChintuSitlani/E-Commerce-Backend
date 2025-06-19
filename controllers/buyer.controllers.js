@@ -27,11 +27,7 @@ exports.registerBuyer = async (req, res) => {
     return res.status(201).json({
       message: 'Registration successful',
       token,
-      buyer: {
-        id: buyer._id,
-        name: buyer.name,
-        email: buyer.email
-      }
+      buyer
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -70,11 +66,7 @@ exports.loginBuyer = async (req, res) => {
     return res.json({
       message: 'Login successful',
       token,
-      buyer: {
-        id: buyer._id,
-        name: buyer.name,
-        email: buyer.email
-      }
+      buyer
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -162,18 +154,11 @@ exports.resetPasswordWithToken = async (req, res) => {
     }
 
     buyer.password = newPassword.trim();
-    await buyer.save();
-
-    const newToken = generateToken(buyer, 'buyer');
+    await buyer.save()
 
     return res.json({
       message: 'Password reset successful',
-      newToken,
-      buyer: {
-        id: buyer._id,
-        name: buyer.name,
-        email: buyer.email
-      }
+      buyer
     });
   } catch (err) {
     console.error('Password reset error:', err);
