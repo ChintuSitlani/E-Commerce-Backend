@@ -1,22 +1,44 @@
 const Seller = require('../models/seller.models');
 const bcrypt = require('bcrypt');
 const { generateToken } = require('../utils/jwt.js');
+const authController = require('../controllers/auth.controllers.js');
+const jwt = require('jsonwebtoken');
+
+// Helper function for error responses
+const errorResponse = (res, status, message) => res.status(status).json({ message });
 
 // Register Seller
 exports.registerSeller = async (req, res) => {
   try {
-    const hashedPassword = await bcrypt.hash(req.body.password.trim(), 10);
-    const seller = await Seller.create({ ...req.body, password: hashedPassword });
+    const { password, ...rest } = req.body;
+    const trimmedPassword = password.trim();
+
+    if (!trimmedPassword) {
+      return errorResponse(res, 400, 'Password is required');
+    }
+
+    const seller = await Seller.create({
+      ...rest,
+      password: trimmedPassword 
+    });
 
     const token = generateToken(seller, 'seller');
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Registration successful',
       token,
       seller
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Registration error:', err);
+
+    if (err.code === 11000) {
+      return errorResponse(res, 409, 'Seller already exists with this email');
+    }
+    if (err.name === 'ValidationError') {
+      return errorResponse(res, 400, err.message);
+    }
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
 
@@ -25,57 +47,128 @@ exports.loginSeller = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const seller = await Seller.findOne({ email });
+    if (!email || !password) {
+      return errorResponse(res, 400, 'Email and password are required');
+    }
+
+    const seller = await Seller.findOne({ email }).select('+password');
     if (!seller) {
-      return res.status(400).json({ message: 'Seller not found for this email ID' });
+      return errorResponse(res, 401, 'Invalid credentials');
     }
 
     const isMatch = await bcrypt.compare(password.trim(), seller.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return errorResponse(res, 401, 'Invalid credentials');
     }
 
     const token = generateToken(seller, 'seller');
 
-    res.json({
+    return res.json({
       message: 'Login successful',
       token,
       seller
     });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err.message });
+    console.error('Login error:', err);
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
+
+// Update Seller Info
 exports.updateSellerInfo = async (req, res) => {
   try {
     const allowedFields = [
-      'name',
-      'password',
-      'shippingAddress',
-      'pin',
-      'phone',
-      'country',
-      'state',
-      'city'
+      'name', 'shippingAddress', 'pin', 'phone',
+      'country', 'state', 'city', 'password'
     ];
 
-    const updates = {};
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
-      }
+    const updates = Object.keys(req.body)
+      .filter(key => allowedFields.includes(key) && req.body[key] !== undefined)
+      .reduce((obj, key) => {
+        obj[key] = req.body[key];
+        return obj;
+      }, {});
+
+    
+    const seller = await Seller.findById(req.params.id);
+    if (!seller) {
+      return errorResponse(res, 404, 'Seller not found');
     }
 
-    // Manually hash the password if it's being updated because the pre-save hook won't run with findByIdAndUpdate
-    if (updates.password)
-      if (updates.password.trim() !== '')
-        updates.password = await bcrypt.hash(updates.password, 10);
+    Object.assign(seller, updates);
+    const updatedSeller = await seller.save();
 
-    const updatedSeller = await Seller.findByIdAndUpdate(req.params.id, updates, { new: true });
-    res.json(updatedSeller);
-
+    return res.json({
+      message: 'Profile updated successfully',
+      seller: updatedSeller
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Update error:', err);
+    if (err.name === 'ValidationError') {
+      return errorResponse(res, 400, err.message);
+    }
+    return errorResponse(res, 500, 'Internal server error');
+  }
+};
+
+// Forgot Password
+exports.forgotPasswordByEmail = async (req, res) => {
+  try {
+    const { email, URL } = req.body;
+
+    if (!email || !URL) {
+      return errorResponse(res, 400, 'Email and URL are required');
+    }
+
+    const seller = await Seller.findOne({ email });
+    if (!seller) {
+      return errorResponse(res, 404, 'If this email exists, a reset link will be sent');
+    }
+
+    const token = generateToken(seller, 'seller', '15m');
+    const resetLink = `${URL}?token=${encodeURIComponent(token)}&userType=seller`;
+
+    await authController.sendVerificationLink(req, res, resetLink, email);
+
+    return res.json({ message: 'If this email exists, a reset link will be sent' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return errorResponse(res, 500, 'Internal server error');
+  }
+};
+
+// Reset Password
+exports.resetPasswordWithToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.trim().length < 6) {
+      return errorResponse(res, 400, 'Password must be at least 6 characters');
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const seller = await Seller.findById(decoded.id);
+
+    if (!seller) {
+      return errorResponse(res, 404, 'Invalid user');
+    }
+
+    seller.password = newPassword.trim();
+    await seller.save();
+
+    return res.json({
+      message: 'Password reset successful',
+      seller
+    });
+  } catch (err) {
+    console.error('Password reset error:', err);
+    if (err.name === 'TokenExpiredError') {
+      return errorResponse(res, 401, 'Token expired');
+    }
+    if (err.name === 'JsonWebTokenError') {
+      return errorResponse(res, 401, 'Invalid token');
+    }
+    return errorResponse(res, 500, 'Internal server error');
   }
 };
